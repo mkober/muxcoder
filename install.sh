@@ -57,25 +57,91 @@ info "Building and installing..."
 "$REPO_DIR/build.sh"
 ok "Binary, scripts, agents, and configs installed"
 
-# --- Post-install guidance ---
+# --- Configure tmux ---
+TMUX_CONF="$HOME/.tmux.conf"
+TMUX_SOURCE_LINE="source-file ~/.config/muxcoder/tmux.conf"
+
+info "Configuring tmux..."
+if [ -f "$TMUX_CONF" ]; then
+  if grep -qF "muxcoder/tmux.conf" "$TMUX_CONF"; then
+    ok "tmux already configured"
+  else
+    tmpfile=$(mktemp)
+    if grep -q "tpm/tpm" "$TMUX_CONF"; then
+      # Insert before TPM plugin init
+      awk -v line="$TMUX_SOURCE_LINE" '/tpm\/tpm/ { if (done == 0) { print "# Muxcoder: multi-agent coding environment"; print line; print ""; done=1 } } { print }' "$TMUX_CONF" > "$tmpfile"
+    else
+      cp "$TMUX_CONF" "$tmpfile"
+      printf '\n# Muxcoder: multi-agent coding environment\n%s\n' "$TMUX_SOURCE_LINE" >> "$tmpfile"
+    fi
+    mv "$tmpfile" "$TMUX_CONF"
+    ok "Added muxcoder source to ~/.tmux.conf"
+  fi
+else
+  warn "No ~/.tmux.conf found — add manually: $TMUX_SOURCE_LINE"
+fi
+
+# --- Install Neovim start screen ---
+NVIM_SITE_PLUGIN="$HOME/.local/share/nvim/site/plugin"
+
+info "Installing Neovim start screen..."
+mkdir -p "$NVIM_SITE_PLUGIN"
+cp "$REPO_DIR/config/muxcoder-startscreen.lua" "$NVIM_SITE_PLUGIN/muxcoder-startscreen.lua"
+ok "Neovim start screen installed (only activates inside muxcoder)"
+
+# --- Configure Claude Code hooks ---
+CLAUDE_SETTINGS="$HOME/.claude/settings.json"
+MUXCODER_SETTINGS="$HOME/.config/muxcoder/settings.json"
+
+info "Configuring Claude Code hooks..."
+if [ ! -f "$MUXCODER_SETTINGS" ]; then
+  warn "Muxcoder settings not found at $MUXCODER_SETTINGS"
+elif [ ! -f "$CLAUDE_SETTINGS" ]; then
+  mkdir -p "$HOME/.claude"
+  cp "$MUXCODER_SETTINGS" "$CLAUDE_SETTINGS"
+  ok "Created ~/.claude/settings.json with muxcoder hooks"
+elif grep -qF "muxcoder-preview-hook.sh" "$CLAUDE_SETTINGS"; then
+  ok "Claude Code hooks already configured"
+else
+  cp "$CLAUDE_SETTINGS" "${CLAUDE_SETTINGS}.pre-muxcoder"
+  jq --slurpfile mc "$MUXCODER_SETTINGS" '
+    def add_hook($phase; $matcher; $hook):
+      if (.hooks[$phase] // [] | map(select(.matcher == $matcher)) | length) > 0 then
+        .hooks[$phase] |= map(
+          if .matcher == $matcher and (.hooks | map(.command) | index($hook.command) | not) then
+            .hooks += [$hook]
+          else . end
+        )
+      else
+        .hooks[$phase] = ((.hooks[$phase] // []) + [{"matcher": $matcher, "hooks": [$hook]}])
+      end;
+
+    .hooks = (.hooks // {}) |
+    .permissions = (.permissions // {}) |
+    .permissions.allow = (.permissions.allow // []) |
+
+    reduce ($mc[0].hooks.PreToolUse // [] | .[] | . as $entry | $entry.hooks[] | {m: $entry.matcher, h: .}) as $x (
+      .; add_hook("PreToolUse"; $x.m; $x.h)
+    ) |
+    reduce ($mc[0].hooks.PostToolUse // [] | .[] | . as $entry | $entry.hooks[] | {m: $entry.matcher, h: .}) as $x (
+      .; add_hook("PostToolUse"; $x.m; $x.h)
+    ) |
+    .permissions.allow = (.permissions.allow + ($mc[0].permissions.allow // []) | unique)
+  ' "$CLAUDE_SETTINGS" > "${CLAUDE_SETTINGS}.tmp" && mv "${CLAUDE_SETTINGS}.tmp" "$CLAUDE_SETTINGS"
+  ok "Merged muxcoder hooks into ~/.claude/settings.json (backup: settings.json.pre-muxcoder)"
+fi
+
+# --- Done ---
 echo ""
 echo -e "${GREEN}Installation complete!${NC}"
 echo ""
 echo "Next steps:"
 echo ""
-echo "  1. Add the tmux snippet to your .tmux.conf:"
-echo ""
-echo "     source-file ~/.config/muxcoder/tmux.conf"
-echo ""
-echo "  2. Copy Claude Code hooks to your project:"
-echo ""
-echo "     cp ~/.config/muxcoder/settings.json <project>/.claude/settings.json"
-echo ""
-echo "  3. Edit your config (optional):"
+echo "  1. Edit your config (optional):"
 echo ""
 echo "     \$EDITOR ~/.config/muxcoder/config"
 echo ""
-echo "  4. Launch a session:"
+echo "  2. Launch a session:"
 echo ""
 echo "     muxcoder"
 echo ""

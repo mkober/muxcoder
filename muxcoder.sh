@@ -173,7 +173,7 @@ tmux set-environment -t "$SESSION" BUS_SESSION "$SESSION"
 
 if [ "$FIRST_WIN" = "edit" ]; then
   send_init "$SESSION:$FIRST_WIN"
-  tmux send-keys -t "$SESSION:$FIRST_WIN" "$EDITOR" Enter
+  tmux send-keys -t "$SESSION:$FIRST_WIN" "MUXCODER=1 $EDITOR" Enter
   tmux split-window -h -t "$SESSION:$FIRST_WIN" -c "$PROJECT_DIR"
   send_init "$SESSION:$FIRST_WIN.1"
   tmux send-keys -t "$SESSION:$FIRST_WIN.1" "$AGENT_LAUNCHER edit" Enter
@@ -193,7 +193,7 @@ for WIN in "${WIN_ARRAY[@]:1}"; do
     # Edit window (if not first): editor + agent
     tmux new-window -t "$SESSION" -n "$WIN" -c "$PROJECT_DIR"
     send_init "$SESSION:$WIN"
-    tmux send-keys -t "$SESSION:$WIN" "$EDITOR" Enter
+    tmux send-keys -t "$SESSION:$WIN" "MUXCODER=1 $EDITOR" Enter
     tmux split-window -h -t "$SESSION:$WIN" -c "$PROJECT_DIR"
     send_init "$SESSION:$WIN.1"
     tmux send-keys -t "$SESSION:$WIN.1" "$AGENT_LAUNCHER edit" Enter

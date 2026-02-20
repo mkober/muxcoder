@@ -14,8 +14,9 @@ var KnownRoles = []string{
 	"deploy", "run", "commit", "analyze",
 }
 
-// splitLeftWindows lists windows where the agent pane is pane 1 (right).
-// All other windows have the agent in pane 0.
+// splitLeftWindows lists windows that have a dedicated tool in the left pane.
+// muxcoder.sh always puts the agent in pane 1 (right) for all windows,
+// so this map is used only for informational purposes.
 // Override via MUXCODER_SPLIT_LEFT env var (space-separated).
 var splitLeftWindows = map[string]bool{
 	"edit":    true,
@@ -49,12 +50,10 @@ func IsSplitLeft(window string) bool {
 }
 
 // AgentPane returns the tmux pane number where the agent runs for a window.
-// Split-left windows have the agent in pane 1; others in pane 0.
+// muxcoder.sh always splits horizontally and launches the agent in pane 1
+// (the right pane) for all windows, so this always returns "1".
 func AgentPane(window string) string {
-	if IsSplitLeft(window) {
-		return "1"
-	}
-	return "0"
+	return "1"
 }
 
 // PaneTarget returns the tmux pane target string for a window's agent.

@@ -64,6 +64,27 @@ build_flags() {
 AGENT="$(agent_name "$ROLE")"
 FLAGS="$(build_flags "$ROLE")"
 
+# Launch agent from a .md file outside the project by reading its content
+# and passing it via --agents JSON + --agent <name>.
+launch_agent_from_file() {
+  local name="$1" file="$2"
+  shift 2
+  local prompt desc
+  # Strip YAML frontmatter, extract prompt body
+  prompt="$(awk '/^---$/{c++; next} c>=2' "$file")"
+  # Extract description from frontmatter (if present)
+  desc="$(awk '/^---$/{c++; next} c==1 && /^description:/{sub(/^description: */, ""); print}' "$file")"
+  : "${desc:=$name}"
+  local agents_json
+  agents_json="$(jq -n --arg n "$name" --arg d "$desc" --arg p "$prompt" \
+    '{($n): {description: $d, prompt: $p}}')"
+  # shellcheck disable=SC2086
+  exec $AGENT_CLI --agent "$name" --agents "$agents_json" $@
+}
+
+# Clear terminal so Claude Code starts with a clean screen
+clear
+
 # Search for agent file in priority order
 if [ -n "$AGENT" ]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -73,11 +94,9 @@ if [ -n "$AGENT" ]; then
     # shellcheck disable=SC2086
     exec $AGENT_CLI --agent "$AGENT" $FLAGS
   elif [ -f "$HOME/.config/muxcoder/agents/${AGENT}.md" ]; then
-    # shellcheck disable=SC2086
-    exec $AGENT_CLI --agent-file "$HOME/.config/muxcoder/agents/${AGENT}.md" $FLAGS
+    launch_agent_from_file "$AGENT" "$HOME/.config/muxcoder/agents/${AGENT}.md" $FLAGS
   elif [ -f "$INSTALL_DIR/agents/${AGENT}.md" ]; then
-    # shellcheck disable=SC2086
-    exec $AGENT_CLI --agent-file "$INSTALL_DIR/agents/${AGENT}.md" $FLAGS
+    launch_agent_from_file "$AGENT" "$INSTALL_DIR/agents/${AGENT}.md" $FLAGS
   fi
 fi
 
