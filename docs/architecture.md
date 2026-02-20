@@ -61,6 +61,15 @@ Persistent:  .muxcoder/memory/{role}.md
 7. After debounce, watcher sends aggregate analyze event to analyst
 ```
 
+### Watcher debounce
+
+The watcher uses a two-phase approach to coalesce burst edits:
+
+1. **Detect change**: trigger file size changes → record pending timestamp
+2. **Wait for stability**: if no further changes for the debounce interval (default 8 seconds), fire the aggregate event
+
+This means rapid consecutive edits (e.g. Claude writing multiple files) are coalesced into a single analyst event containing all affected file paths, rather than firing once per edit.
+
 ### Diff Preview Flow
 
 ```
@@ -92,6 +101,14 @@ Messages from build, test, and review agents to any non-edit agent are automatic
 2. `send` calls `notify` to alert the recipient via `tmux send-keys`
 3. If auto-CC fires, `send` also notifies edit
 4. The watcher provides fallback notifications for all roles except edit
+
+### Lock mechanism
+
+Agents indicate busy state via lock files at `/tmp/muxcoder-bus-{session}/lock/{role}.lock`. The dashboard TUI reads lock status for display. Commands:
+
+- `muxcoder-agent-bus lock [role]` — create the lock file
+- `muxcoder-agent-bus unlock [role]` — remove the lock file
+- `muxcoder-agent-bus is-locked [role]` — check status (exit 0 if locked, 1 if not)
 
 ## Memory System
 
@@ -154,3 +171,10 @@ The build-test-review chain is **deterministic** — driven by bash hooks detect
 │                                         │
 └─────────────────────────────────────────┘
 ```
+
+## See also
+
+- [Agent Bus](agent-bus.md) — CLI reference for `muxcoder-agent-bus`
+- [Agents](agents.md) — Role descriptions and customization
+- [Hooks](hooks.md) — Hook system and customization
+- [Configuration](configuration.md) — Config file and env var reference

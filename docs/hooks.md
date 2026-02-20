@@ -48,7 +48,7 @@ cp ~/.config/muxcoder/settings.json .claude/settings.json
 
 **Phase:** PreToolUse
 **Trigger:** Write, Edit, NotebookEdit
-**Window:** edit only
+**Window:** edit only (detected via `tmux display-message -p '#W'`; exits immediately if the current window is not `edit`)
 
 Opens the target file in nvim and shows a diff preview of the proposed change before the user accepts or rejects it.
 
@@ -80,10 +80,14 @@ Signals that a file was edited. Performs three tasks:
 2. **Event routing**: Sends file-change events to appropriate agents based on file type
 3. **Diff cleanup**: In the edit window, closes the diff preview and reloads the file at the changed line
 
+**NotebookEdit:** For `NotebookEdit` tool events, `file_path` is extracted from `tool_input.notebook_path`. The diff preview opens the `.ipynb` file at the raw JSON level.
+
 **File routing rules** (configurable via `MUXCODER_ROUTE_RULES`):
 - Test/spec files -> test agent
 - Infrastructure files (cdk, terraform, pulumi, stack, construct) -> deploy agent
 - Source files (.ts, .js, .py, .go, .rs) -> build agent
+
+**Matching mechanics:** Rules are evaluated in order (first match wins). Each rule's pattern is `|`-separated substrings matched case-sensitively against the full file path. Files matching no rule skip routing silently.
 
 ### muxcoder-bash-hook.sh
 
@@ -104,7 +108,7 @@ Also sends events to the analyst for analysis.
 - `MUXCODER_BUILD_PATTERNS` — pipe-separated patterns for build command detection
 - `MUXCODER_TEST_PATTERNS` — pipe-separated patterns for test command detection
 
-**JSON parsing:** Uses `jq` by default with a `python3` fallback.
+**JSON parsing:** Uses `jq` by default with a `python3` fallback. If neither `jq` nor `python3` is available, the `command` and `exit_code` fields will be empty and the hook exits silently — the build-test-review chain will not trigger. The preview hook uses `python3` specifically for generating proposed file content; without it, no split diff appears in nvim.
 
 ## Hook Event Format
 

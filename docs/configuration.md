@@ -9,6 +9,8 @@ Muxcoder uses a shell-sourceable config file. Resolution order:
 3. `~/.config/muxcoder/config` — user global config
 4. Built-in defaults
 
+Variables set in a higher-priority config completely replace lower-priority values (bash source semantics). To extend rather than replace a value, use the `${VAR:-default}` pattern in your config file.
+
 The config file is a plain bash script that sets environment variables:
 
 ```bash
@@ -29,6 +31,7 @@ MUXCODER_SHELL_INIT="source ~/.venv/bin/activate"
 | `MUXCODER_EDITOR` | `nvim` | Editor command for the edit window |
 | `MUXCODER_AGENT_CLI` | `claude` | AI CLI command to run agents |
 | `MUXCODER_SHELL_INIT` | (empty) | Command to run in each new tmux pane (e.g. activate a virtualenv) |
+| `MUXCODER_ACCEPT_TIMEOUT` | `30` | Seconds to wait for the bypass permissions prompt before giving up |
 
 ### Window Layout
 
@@ -55,7 +58,7 @@ MUXCODER_SHELL_INIT="source ~/.venv/bin/activate"
 | `AGENT_ROLE` | (auto-detected) | Current agent's role name |
 | `BUS_MEMORY_DIR` | `.muxcoder/memory/` | Path to persistent memory directory |
 | `MUXCODER_ROLES` | (empty) | Comma-separated extra roles to add to the known roles list |
-| `MUXCODER_SPLIT_LEFT` | `edit analyze commit` | Space-separated windows where agent runs in pane 1 |
+| `MUXCODER_SPLIT_LEFT` | `edit analyze commit` | See Window Layout above — also read by the bus binary for pane targeting |
 
 ## Directory Structure
 
@@ -87,7 +90,7 @@ Created on first `muxcoder-agent-bus init` in the project directory.
 ├── config                 # User global config
 ├── settings.json          # Claude Code hooks template
 ├── tmux.conf              # Tmux snippet to source
-├── nvim.lua               # Nvim snippet reference
+├── nvim.lua               # Reference nvim snippet (not auto-loaded — copy relevant sections to your nvim config manually)
 └── agents/                # User global agent definitions
     ├── code-editor.md
     ├── code-builder.md

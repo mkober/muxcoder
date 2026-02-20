@@ -46,6 +46,12 @@ muxcoder-agent-bus send <to> <action> "<payload>" [--type TYPE] [--reply-to ID] 
 
 Auto-detects sender from `AGENT_ROLE` env var or tmux window name.
 
+**Example:**
+```
+$ muxcoder-agent-bus send build build "Run ./build.sh and report results"
+Sent: edit → build [request:build] Run ./build.sh and report results
+```
+
 ### `muxcoder-agent-bus inbox`
 
 Read messages from an agent's inbox.
@@ -58,6 +64,21 @@ muxcoder-agent-bus inbox [--peek] [--raw] [--role ROLE]
 - `--peek` — non-destructive preview (does not consume messages)
 - `--raw` — dump raw JSONL
 - `--role ROLE` — read a specific role's inbox (defaults to own role)
+
+**Example:**
+```
+$ muxcoder-agent-bus inbox
+You have new messages! Check below and reply to any that need action.
+
+---
+📨 Message from edit (request)
+Action: build
+Message: Run ./build.sh and report results
+ID: 1708300000-edit-a1b2c3d4
+
+→ Reply: muxcoder-agent-bus send edit build "<your reply>" --type response --reply-to 1708300000-edit-a1b2c3d4
+---
+```
 
 ### `muxcoder-agent-bus memory`
 
@@ -92,6 +113,22 @@ muxcoder-agent-bus watch [session] [--poll N] [--debounce N]
 
 Runs in the `analyze` window left pane.
 
+#### Trigger file format
+
+The trigger file (`/tmp/muxcoder-analyze-{SESSION}.trigger`) is written by `muxcoder-analyze-hook.sh` with one line per file edit:
+
+```
+<unix-timestamp> <filepath>
+```
+
+When the watcher detects a change in the trigger file, it starts debouncing. After the debounce interval elapses with no further changes, the watcher:
+
+1. Reads the trigger file and collects unique file paths
+2. Sends an aggregate `analyze` event to the analyst agent with all edited files
+3. Truncates the trigger file
+
+Per-file routing to specific agents (test/deploy/build) is handled earlier by `muxcoder-analyze-hook.sh` at edit time — the watcher only handles the aggregate analyst notification.
+
 ### `muxcoder-agent-bus dashboard`
 
 Launch the Dracula-themed terminal dashboard TUI.
@@ -104,7 +141,7 @@ muxcoder-agent-bus dashboard [--refresh N]
 - Shows per-agent cost and token usage
 - Shows inbox counts and lock status
 - Shows recent log entries and inter-agent messages
-- Monitors Claude Code teams and tasks
+- Monitors Claude Code teams and tasks (these are Claude Code's built-in Task tool sub-agents, not muxcoder's own bus coordination)
 - `--refresh N` — refresh interval in seconds (default: 5)
 - Dynamically reads windows from the tmux session
 

@@ -14,6 +14,15 @@ When `muxcoder-agent.sh` launches an agent, it searches for the agent definition
 
 If no agent file is found, a built-in inline prompt is used as fallback.
 
+### How agent files are loaded
+
+The `launch_agent_from_file` function in `muxcoder-agent.sh` handles agent file loading:
+
+- **Project-local files** (`.claude/agents/<name>.md`): launched natively via `claude --agent <name>` — Claude Code resolves the file automatically.
+- **External files** (`~/.config/muxcoder/agents/` or install dir): the file is read, YAML frontmatter is stripped with `awk`, and the `description` field is extracted. The prompt body and metadata are passed to Claude Code via `--agents <JSON>` (requires `jq`).
+
+The three-tier search (project-local → user config → install default) runs in `muxcoder-agent.sh` after resolving the agent filename via `agent_name()`.
+
 ## Built-in Roles
 
 | Role | Agent File | Window | Description |
@@ -107,7 +116,7 @@ cp ~/.config/muxcoder/agents/code-builder.md .claude/agents/code-builder.md
    # ~/.config/muxcoder/agents/repo-documentor.md
    ```
 
-5. Add to agent name mapping in `muxcoder-agent.sh` if using the three-tier search.
+5. Add a case to `agent_name()` in `scripts/muxcoder-agent.sh` to map the role to its agent filename. Optionally add a case to `allowed_tools()` to scope the agent's Bash permissions.
 
 ### Agent Permissions
 
@@ -115,8 +124,11 @@ Agents have scoped Bash permissions for autonomous operation. The default permis
 
 - **build**: `./build.sh`, `make`, `go build`, `pnpm build`, `cargo build`
 - **test**: `./test.sh`, `go test`, `jest`, `pytest`, `cargo test`
-- **review**: `git diff`, `git log`, `git status`, `git show`
-- **analyst**: bus commands only
+- **review**: `git diff`, `git log`, `git status`, `git show` (read-only git)
+- **git**: `git *`, `gh *` (all git and GitHub CLI subcommands)
+- **deploy**: unrestricted (no `--allowedTools` filter)
+- **runner**: unrestricted (no `--allowedTools` filter)
+- **analyst**: bus commands + Read, Glob, Grep (no shell commands)
 
 All agents have access to `muxcoder-agent-bus` commands.
 

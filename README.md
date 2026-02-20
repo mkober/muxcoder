@@ -129,6 +129,11 @@ muxcoder-agent-bus send <to> <action> "<msg>"  # Send a message
 muxcoder-agent-bus inbox             # Read your messages
 muxcoder-agent-bus memory context    # Read shared + own memory
 muxcoder-agent-bus dashboard         # Launch status TUI
+muxcoder-agent-bus watch [session]   # Run the bus watcher daemon
+muxcoder-agent-bus notify <role>     # Send tmux notification to agent
+muxcoder-agent-bus lock [role]       # Mark agent as busy
+muxcoder-agent-bus unlock [role]     # Mark agent as available
+muxcoder-agent-bus cleanup [session] # Remove ephemeral bus directory
 ```
 
 Bus directory: `/tmp/muxcoder-bus-{session}/`
@@ -165,6 +170,8 @@ See [docs/configuration.md](docs/configuration.md) for the full reference.
 | `MUXCODER_AGENT_CLI` | `claude` | AI CLI command |
 | `MUXCODER_BUILD_PATTERNS` | `./build.sh\|pnpm*build\|go*build\|make\|cargo*build` | Hook detection |
 | `MUXCODER_TEST_PATTERNS` | `./test.sh\|jest\|pnpm*test\|pytest\|go*test\|cargo*test` | Hook detection |
+| `MUXCODER_SCAN_DEPTH` | `3` | Max depth for project discovery |
+| `MUXCODER_SHELL_INIT` | (empty) | Command to run in each new tmux pane |
 
 ## Customization
 
@@ -185,6 +192,17 @@ Place custom agent files in `.claude/agents/` in your project or `~/.config/muxc
 - [Agents](docs/agents.md) — Role descriptions and customization
 - [Hooks](docs/hooks.md) — Hook system and customization
 - [Configuration](docs/configuration.md) — Config file and env var reference
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Agent never starts / hangs at launch | Bypass permissions prompt not accepted | Check `MUXCODER_ACCEPT_TIMEOUT` (default 30s); ensure tmux pane is visible |
+| Build-test-review chain doesn't fire | `jq` and `python3` both missing | Install `jq` — hooks need it to parse JSON from stdin |
+| No diff preview in nvim | `python3` not available | Preview hook uses `python3` to generate proposed content; install it |
+| Messages not delivered | Bus directory missing or stale | Run `muxcoder-agent-bus init` or restart the session |
+| Watcher floods analyst with events | Debounce too short for large edits | Increase `--debounce` (default 8s) in the watcher command |
+| Agent has wrong permissions | Role not mapped in `allowed_tools()` | Add a case to `allowed_tools()` in `scripts/muxcoder-agent.sh` |
 
 ## License
 
